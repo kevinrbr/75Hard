@@ -1,5 +1,37 @@
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
-import { createSeedState } from '@/services/mockData';
+function createEmptyInitialState(userId) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+    const stamp = now.toISOString();
+    const challengeId = `challenge_${crypto.randomUUID()}`;
+    return {
+        challenge: {
+            id: challengeId,
+            userId,
+            name: '75 Hard Challenge',
+            startDate: today,
+            durationDays: 75,
+            activeDay: 1,
+            status: 'active',
+            createdAt: stamp,
+            updatedAt: stamp
+        },
+        goals: [],
+        completions: [],
+        dailyLogs: [],
+        weeklyLogs: [],
+        settings: {
+            id: `settings_${crypto.randomUUID()}`,
+            userId,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            notificationsEnabled: true,
+            backupEnabled: false,
+            preferredTheme: 'light',
+            createdAt: stamp,
+            updatedAt: stamp
+        }
+    };
+}
 function requireSupabase() {
     if (!hasSupabaseConfig || !supabase) {
         throw new Error('Supabase non configuré. Renseigne VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
@@ -256,15 +288,7 @@ export async function loadInitialState() {
         throw new Error('Erreur chargement challenge: ' + challengeQuery.error.message);
     }
     if (!challengeQuery.data) {
-        const seed = createSeedState();
-        const initialState = {
-            challenge: { ...seed.challenge, userId },
-            goals: seed.goals,
-            completions: seed.completions,
-            dailyLogs: seed.dailyLogs,
-            weeklyLogs: seed.weeklyLogs,
-            settings: { ...seed.settings, userId }
-        };
+        const initialState = createEmptyInitialState(userId);
         await saveState(initialState);
         return initialState;
     }
