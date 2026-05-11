@@ -2,7 +2,7 @@ import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { exportBackupJson } from '@/services/backupService';
 import { loadInitialState, saveState } from '@/services/challengeService';
-import { addDays, diffInDays, startOfWeek, todayISO } from '@/utils/date';
+import { diffInDays, startOfWeek, todayISO } from '@/utils/date';
 import { buildCalendar, computeStats, computeWeeklyHistory } from '@/utils/stats';
 function createId(prefix) {
     return `${prefix}_${crypto.randomUUID()}`;
@@ -211,15 +211,6 @@ export const useChallengeStore = defineStore('challenge', () => {
             createdAt: stamp,
             updatedAt: stamp
         });
-        if (payload.type === 'daily') {
-            const dayDate = today.value;
-            ensureCompletion(goals.value[0].id, dayDate, 'daily');
-            recalculateDailyLog(dayDate);
-        }
-        else {
-            ensureCompletion(goals.value[0].id, weekStart.value, 'weekly');
-            recalculateWeeklyLog(weekStart.value);
-        }
         await persist();
     }
     async function updateGoal(goalId, patch) {
@@ -235,8 +226,6 @@ export const useChallengeStore = defineStore('challenge', () => {
             return;
         goals.value = goals.value.filter((entry) => entry.id !== goalId);
         completions.value = completions.value.filter((entry) => entry.goalId !== goalId);
-        recalculateDailyLog(today.value);
-        recalculateWeeklyLog(weekStart.value);
         await persist();
     }
     async function setStartDate(startDate) {
@@ -244,12 +233,13 @@ export const useChallengeStore = defineStore('challenge', () => {
             return;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate))
             return;
+        // Changer la date de départ implique un redémarrage propre de la progression.
+        completions.value = [];
+        dailyLogs.value = [];
+        weeklyLogs.value = [];
         challenge.value.startDate = startDate;
         challenge.value.updatedAt = new Date().toISOString();
         challenge.value.activeDay = activeDay.value;
-        ensureChallengeHistory();
-        recalculateDailyLog(today.value);
-        recalculateWeeklyLog(weekStart.value);
         await persist();
     }
     async function toggleDailyTask(goalId) {
@@ -304,18 +294,6 @@ export const useChallengeStore = defineStore('challenge', () => {
     function ensureChallengeHistory() {
         if (!challenge.value)
             return;
-        if (dailyGoals.value.length === 0) {
-            challenge.value.activeDay = activeDay.value;
-            return;
-        }
-        const days = activeDay.value;
-        for (let index = 0; index < days; index += 1) {
-            const date = addDays(challenge.value.startDate, index);
-            const exists = dailyLogs.value.some((log) => log.date === date);
-            if (!exists) {
-                recalculateDailyLog(date);
-            }
-        }
         challenge.value.activeDay = activeDay.value;
     }
     return {
