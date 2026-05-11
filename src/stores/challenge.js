@@ -91,9 +91,13 @@ export const useChallengeStore = defineStore('challenge', () => {
         return created;
     }
     function recalculateDailyLog(date) {
+        const totalGoals = dailyGoals.value.length;
+        if (totalGoals === 0) {
+            dailyLogs.value = dailyLogs.value.filter((log) => log.date !== date);
+            return;
+        }
         const matches = completions.value.filter((completion) => completion.type === 'daily' && completion.completionDate === date);
         const completedGoals = matches.filter((match) => match.completed).length;
-        const totalGoals = dailyGoals.value.length;
         const status = completedGoals === totalGoals ? 'complete' : completedGoals === 0 ? 'missed' : 'partial';
         const existing = dailyLogs.value.find((log) => log.date === date);
         const stamp = new Date().toISOString();
@@ -116,9 +120,13 @@ export const useChallengeStore = defineStore('challenge', () => {
         });
     }
     function recalculateWeeklyLog(week) {
+        const totalGoals = weeklyGoals.value.length;
+        if (totalGoals === 0) {
+            weeklyLogs.value = weeklyLogs.value.filter((log) => log.weekStartDate !== week);
+            return;
+        }
         const matches = completions.value.filter((completion) => completion.type === 'weekly' && completion.completionDate === week);
         const completedGoals = matches.filter((match) => match.completed).length;
-        const totalGoals = weeklyGoals.value.length;
         const status = completedGoals === totalGoals ? 'complete' : completedGoals === 0 ? 'missed' : 'partial';
         const existing = weeklyLogs.value.find((log) => log.weekStartDate === week);
         const stamp = new Date().toISOString();
@@ -175,9 +183,6 @@ export const useChallengeStore = defineStore('challenge', () => {
             weeklyLogs.value = state.weeklyLogs;
             settings.value = state.settings;
             challenge.value.activeDay = activeDay.value;
-            recalculateDailyLog(today.value);
-            recalculateWeeklyLog(weekStart.value);
-            await persist();
         }
         catch (error) {
             loadError.value =
@@ -299,6 +304,10 @@ export const useChallengeStore = defineStore('challenge', () => {
     function ensureChallengeHistory() {
         if (!challenge.value)
             return;
+        if (dailyGoals.value.length === 0) {
+            challenge.value.activeDay = activeDay.value;
+            return;
+        }
         const days = activeDay.value;
         for (let index = 0; index < days; index += 1) {
             const date = addDays(challenge.value.startDate, index);

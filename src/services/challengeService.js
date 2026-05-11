@@ -293,12 +293,17 @@ export async function loadInitialState() {
         return initialState;
     }
     const challenge = fromChallengeRow(challengeQuery.data);
-    const [goalsResult, completionsResult, dailyLogsResult, weeklyLogsResult, settingsResult] = await Promise.all([
+    const [goalsResult, completionsResult, dailyLogsResult, weeklyLogsResult, settingsRowsResult] = await Promise.all([
         client.from('goals').select('*').eq('challenge_id', challenge.id),
         client.from('goal_completions').select('*').eq('challenge_id', challenge.id),
         client.from('daily_logs').select('*').eq('challenge_id', challenge.id),
         client.from('weekly_logs').select('*').eq('challenge_id', challenge.id),
-        client.from('user_settings').select('*').eq('user_id', userId).maybeSingle()
+        client
+            .from('user_settings')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
     ]);
     if (goalsResult.error)
         throw new Error('Erreur goals: ' + goalsResult.error.message);
@@ -308,10 +313,11 @@ export async function loadInitialState() {
         throw new Error('Erreur daily_logs: ' + dailyLogsResult.error.message);
     if (weeklyLogsResult.error)
         throw new Error('Erreur weekly_logs: ' + weeklyLogsResult.error.message);
-    if (settingsResult.error)
-        throw new Error('Erreur user_settings: ' + settingsResult.error.message);
-    const settings = settingsResult.data
-        ? fromSettingsRow(settingsResult.data)
+    if (settingsRowsResult.error)
+        throw new Error('Erreur user_settings: ' + settingsRowsResult.error.message);
+    const settingsRow = settingsRowsResult.data?.[0];
+    const settings = settingsRow
+        ? fromSettingsRow(settingsRow)
         : {
             id: `settings_${crypto.randomUUID()}`,
             userId,
@@ -330,7 +336,7 @@ export async function loadInitialState() {
         weeklyLogs: (weeklyLogsResult.data ?? []).map(fromWeeklyLogRow),
         settings
     };
-    if (!settingsResult.data) {
+    if (!settingsRow) {
         await saveState(state);
     }
     return state;
