@@ -394,25 +394,26 @@ export async function loadInitialState(): Promise<PersistedState> {
   const client = requireSupabase()
   const userId = await ensureUserSessionId()
 
-  const challengeQuery = await client
+  const challengeRowsResult = await client
     .from('challenge')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle<ChallengeRow>()
 
-  if (challengeQuery.error) {
-    throw new Error('Erreur chargement challenge: ' + challengeQuery.error.message)
+  if (challengeRowsResult.error) {
+    throw new Error('Erreur chargement challenge: ' + challengeRowsResult.error.message)
   }
 
-  if (!challengeQuery.data) {
+  const challengeRow = (challengeRowsResult.data as ChallengeRow[] | null)?.[0]
+
+  if (!challengeRow) {
     const initialState = createEmptyInitialState(userId)
     await saveState(initialState)
     return initialState
   }
 
-  const challenge = fromChallengeRow(challengeQuery.data)
+  const challenge = fromChallengeRow(challengeRow)
 
   const [goalsResult, completionsResult, dailyLogsResult, weeklyLogsResult, settingsRowsResult] = await Promise.all([
     client.from('goals').select('*').eq('challenge_id', challenge.id),
